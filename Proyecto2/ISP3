@@ -1,0 +1,48 @@
+flowchart TD
+    ICP3[ICP3 Interconexion ISP]
+
+    R1[R1-CF Edge]
+    HUB[SW-HUB-CF Hub Central]
+
+    R2[R2-CF Soporte]
+    R3[R3-CF Seguridad]
+    R4[R4-CF Wifi]
+    R5[R5-CF Expansion]
+
+    S1[SW-SOP-DIST]
+    S2[SW-SOP-ACC]
+
+    S3[SW-SEG-DIST]
+    S4[SW-SEG-ACC]
+
+    WRT[WRT300N Router Wifi]
+    LAP[Laptop Wifi]
+
+    P1[PC-SOP-1]
+    P2[PC-SOP-2]
+    P3[PC-SOP-3]
+
+    G1[PC-SEG-1]
+    G2[PC-SEG-2]
+
+    ICP3 --> R1
+    R1 --> HUB
+
+    HUB --> R2
+    HUB --> R3
+    HUB --> R4
+    HUB --> R5
+
+    R2 --> S1
+    S1 ==>|LACP x2| S2
+    S2 --> P1
+    S2 --> P2
+    S2 --> P3
+
+    R3 --> S3
+    S3 ==>|LACP x2| S4
+    S4 --> G1
+    S4 --> G2
+
+    R4 --> WRT
+    WRT --> LAP
