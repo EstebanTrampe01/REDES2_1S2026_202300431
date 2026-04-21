@@ -2,8 +2,22 @@
 
 **Curso:** Redes de Computadoras 2  
 **Proyecto:** Proyecto 2 - Telecom Uno, Redes Nacionales y Conexiones Futuras  
-**Nommbre:** Juan Esteban Chacón trampe  
+**Nombre:** Juan Esteban Chacón trampe  
 **Carne:** `202300431`  
+
+## Indice
+
+1. Resumen
+2. Fase 1 - Diseno
+3. Topologia
+4. Tabla De Enrutamiento De Topologias
+5. Fase 2 - Implementacion Interna
+6. Fase 3 - Integracion BGP
+7. Fase 4 - ACLs Y Validacion
+8. Comandos
+9. Validaciones Finales
+10. Evidencia
+11. Conclusiones
 
 ## Resumen
 
@@ -183,21 +197,21 @@ El uso de `VLSM` permitio adaptar el tamano de cada subred al tipo de segmento, 
 
 ### Centro
 
-`ISP1 Gi1/1/1 - Gi1/1/2 ISP2`  
-`ISP2 Gi1/1/1 - Gi1/1/2 ISP3`  
-`ISP3 Gi1/1/1 - Gi1/1/2 ISP1`
+`ICP1 Gi1/1/1 - Gi1/1/2 ICP2`  
+`ICP2 Gi1/1/1 - Gi1/1/2 ICP3`  
+`ICP3 Gi1/1/1 - Gi1/1/2 ICP1`
 
 | Equipo frontera | ISP asociado | AS | IGP interno |
 | --- | --- | --- | --- |
-| ISP1 | ISP1 | 100 | OSPF |
-| ISP2 | ISP2 | 200 | OSPF |
-| ISP3 | ISP3 | 300 | EIGRP |
+| ICP1 | ISP1 | 100 | OSPF |
+| ICP2 | ISP2 | 200 | OSPF |
+| ICP3 | ISP3 | 300 | EIGRP |
 
 ### ISP1
 
 | Origen | Puerto | Destino | Puerto | Nota |
 | --- | --- | --- | --- | --- |
-| ISP1 | Gi1/0/1 | R1-TU | Gi0/0 | Enlace de ISP1 hacia interconexion |
+| ICP1 | Gi1/0/1 | R1-TU | Gi0/0 | Enlace de ISP1 hacia interconexion |
 | R1-TU | Gi0/1 | R2-TU | Gi0/0 | Rama Administracion |
 | R1-TU | Gi0/2 | R3-TU | Gi0/0 | Rama Atencion al Cliente |
 | R2-TU | Gi0/1 | R4-TU | Gi0/0 | Subrama ADM |
@@ -220,7 +234,7 @@ El uso de `VLSM` permitio adaptar el tamano de cada subred al tipo de segmento, 
 
 | Origen | Puerto | Destino | Puerto | Nota |
 | --- | --- | --- | --- | --- |
-| ISP2 | Gi1/0/1 | R1-RN | Gi0/0 | Salida de ISP2 hacia interconexion |
+| ICP2 | Gi1/0/1 | R1-RN | Gi0/0 | Salida de ISP2 hacia interconexion |
 | R1-RN | Gi0/1 | R2-RN | Gi0/0 | Core a distribucion A |
 | R1-RN | Gi0/2 | R3-RN | Gi0/0 | Core a distribucion B |
 | R2-RN | Gi0/1 | R4-RN | Gi0/0 | Distribucion A a gateway A |
@@ -245,7 +259,7 @@ El uso de `VLSM` permitio adaptar el tamano de cada subred al tipo de segmento, 
 
 | Origen | Puerto | Destino | Puerto | Nota |
 | --- | --- | --- | --- | --- |
-| ISP3 | Gi1/0/1 | R1-CF | Gi0/0 | Salida de ISP3 hacia interconexion |
+| ICP3 | Gi1/0/1 | R1-CF | Gi0/0 | Salida de ISP3 hacia interconexion |
 | R1-CF | Gi0/1 | SW-HUB-CF | Fa0/24 | Enlace del borde al hub central |
 | R2-CF | Gi0/0 | SW-HUB-CF | Fa0/1 | Spoke Soporte |
 | R3-CF | Gi0/0 | SW-HUB-CF | Fa0/2 | Spoke Seguridad |
@@ -271,6 +285,73 @@ El uso de `VLSM` permitio adaptar el tamano de cada subred al tipo de segmento, 
 - SSID: `ISP3_WIFI`
 - Seguridad: `WPA2 Personal`
 - Passphrase: `20-JE-04`
+- Conexion fisica correcta: `R4-CF Gi0/1 -> WRT300N Ethernet 1`
+- El puerto `Internet` del `WRT300N` no se utiliza para evitar NAT y mantener DHCP centralizado.
+
+## Tabla De Enrutamiento De Topologias
+
+Esta seccion resume la logica de enrutamiento aplicada en cada topologia para dejar claro como se propagan rutas internas, salida al core e intercambio inter-ISP.
+
+### Resumen General
+
+| Segmento | Protocolo o mecanismo | Funcion |
+| --- | --- | --- |
+| ISP1 | OSPF | Propaga rutas internas de Telecom Uno |
+| ISP2 | OSPF | Propaga rutas internas de Redes Nacionales |
+| ISP3 | EIGRP | Propaga rutas internas de Conexiones Futuras |
+| Core inter-ISP | BGP | Intercambia rutas resumen entre ISP |
+| Bordes R1-* | Ruta por defecto | Saca trafico interno hacia su ICP |
+
+### Tabla De Enrutamiento - ISP1
+
+| Equipo | Aprende | Medio |
+| --- | --- | --- |
+| R4-TU | Redes internas ISP1 + default route | OSPF |
+| R5-TU | Redes internas ISP1 + default route | OSPF |
+| R2-TU | Red de Administracion, servidores y default | OSPF |
+| R3-TU | Red de Atencion al Cliente y default | OSPF |
+| R1-TU | Redes internas de ISP1 | OSPF |
+| R1-TU | Salida al resto del pais | Ruta por defecto a `172.16.11.97` |
+| ICP1 | Prefijo `172.16.11.0/24` | Ruta estatica a `172.16.11.98` |
+
+### Tabla De Enrutamiento - ISP2
+
+| Equipo | Aprende | Medio |
+| --- | --- | --- |
+| R4-RN | Redes internas ISP2 + default route | OSPF |
+| R5-RN | Redes internas ISP2 + default route | OSPF |
+| R2-RN | Segmentos de Ventas/Facturacion/DHCP y default | OSPF |
+| R3-RN | Segmentos de Ventas/Facturacion/DHCP y default | OSPF |
+| R1-RN | Redes internas de ISP2 | OSPF |
+| R1-RN | Salida al resto del pais | Ruta por defecto a `172.16.21.97` |
+| ICP2 | Prefijo `172.16.21.0/24` | Ruta estatica a `172.16.21.98` |
+
+### Tabla De Enrutamiento - ISP3
+
+| Equipo | Aprende | Medio |
+| --- | --- | --- |
+| R2-CF | Redes internas ISP3 + default route | EIGRP |
+| R3-CF | Redes internas ISP3 + default route | EIGRP |
+| R4-CF | Redes internas ISP3 + default route | EIGRP |
+| R5-CF | Redes internas ISP3 + default route | EIGRP |
+| R1-CF | Redes internas de ISP3 | EIGRP |
+| R1-CF | Salida al resto del pais | Ruta por defecto a `172.16.32.113` |
+| ICP3 | Prefijo `172.16.32.0/24` | Ruta estatica a `172.16.32.114` |
+
+### Tabla De Enrutamiento - Core BGP
+
+| Equipo | AS | Vecinos | Redes anunciadas |
+| --- | --- | --- | --- |
+| ICP1 | 100 | `192.168.31.2`, `192.168.31.9` | `172.16.11.0/24` |
+| ICP2 | 200 | `192.168.31.1`, `192.168.31.6` | `172.16.21.0/24` |
+| ICP3 | 300 | `192.168.31.10`, `192.168.31.5` | `172.16.32.0/24` |
+
+### Criterio De Enrutamiento Final
+
+- Cada ISP mantiene su protocolo interno para alcanzar sus redes locales.
+- Cada router borde `R1-*` recibe y propaga una ruta por defecto hacia el `ICP` correspondiente.
+- Cada `ICP` anuncia por `BGP` el resumen `/24` de su ISP.
+- Esta combinacion permite conectividad completa entre departamentos, acceso a servicios centrales y control de trafico por medio de ACL.
 
 ## Fase 2 - Implementacion Interna
 
@@ -1885,6 +1966,7 @@ Mostrar una prueba de ping denegada
 
 ![alt text](img/image-21.png)
 ![alt text](img/image-23.png)
+
 
 ## Conclusiones
 
